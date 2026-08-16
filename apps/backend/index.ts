@@ -1,23 +1,14 @@
-import express from "express";
-import {prisma} from "./db";
 
-const app=express()
+import {Prisma} from "db/client";
 
-app.use(express.json())
+import express  from "express";
 
-app.post("/signup",(req,res)=>{
-    const{username,password}=req.body;
-    prisma.user.create({
-        data:{
-            username,
-            password
-        }
-    })
+const app=express();
 
-    res.json({
-        message:"signed up"
-    })
+
+app.use("/",(req,res)=>{
+        res.send("hello hope you get a 20LPM job soon")
 })
-
-
-app.listen(3000);
+app.listen(8000,()=>{
+    console.log("hello the server has started")
+})

@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+model User {
+  id       String @id @default(uuid())
+  username String @unique
+  password String
+
+  memberships   Membership[]
+  issueMappings IssueMapping[]
+  comments      Comment[]
+}
+
+model Organization {
+  id          String @id @default(uuid())
+  name        String
+  description String?
+
+  memberships Membership[]
+  boards      Board[]
+}
+
+model Membership {
+  id             String @id @default(uuid())
+  userId         String
+  organizationId String
+  role           Role
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+model Board {
+  id             String @id @default(uuid())
+  title          String
+  organizationId String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sections     Section[]
+}
+
+model Section {
+  id      String @id @default(uuid())
+  title   String
+  boardId String
+
+  board  Board   @relation(fields: [boardId], references: [id])
+  issues Issue[]
+}
+
+model Issue {
+  id          String @id @default(uuid())
+  title       String
+  description String?
+  sectionId   String
+
+  section       Section        @relation(fields: [sectionId], references: [id])
+  issueMappings IssueMapping[]
+  comments      Comment[]
+}
+
+model IssueMapping {
+  id      String @id @default(uuid())
+  userId  String
+  issueId String
+
+  user  User  @relation(fields: [userId], references: [id])
+  issue Issue @relation(fields: [issueId], references: [id])
+
+  @@unique([userId, issueId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  issueId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
