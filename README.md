@@ -1,159 +1,133 @@
-# Turborepo starter
+# 🚀 TaskBoard
 
-This Turborepo starter is maintained by the Turborepo core team.
+A full-stack project management and collaboration platform inspired by Trello.
 
-## Using this example
+TaskBoard allows users to create organizations, manage members, create boards, organize work into sections, and manage issues.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
-```
+## ✨ Features
 
-## What's inside?
+### 🔐 Authentication
 
-This Turborepo includes the following packages/apps:
+- User Signup
+- User Signin
+- JWT-based authentication
+- Password hashing using bcrypt
+- Protected API routes
 
-### Apps and Packages
+### 🏢 Organizations
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- Create and manage organizations
+- View organizations
+- Organization-specific boards
+- Organization-specific members
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+### 👥 Organization Members
 
-### Utilities
+- View organization members
+- Admin and Member roles
+- Admin-only member management
+- Add users to an organization
+- Prevent duplicate memberships
 
-This Turborepo has some additional tools already setup for you:
+### 📋 Boards
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+- Create boards inside organizations
+- View boards belonging to an organization
+- Open individual boards
 
-### Build
+### 🗂️ Board Sections
 
-To build all apps and packages, run the following command:
+Boards can be organized into workflow sections such as:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- Open
+- Pending
+- Done
 
-```sh
-cd my-turborepo
-turbo build
-```
+### 🐛 Issue Management
 
-Without global `turbo`, use your package manager:
+- Create issues
+- Add issue descriptions
+- Assign issues to sections
+- Display issues according to their section
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
-```
+---
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+# 📸 Screenshots
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## 🔐 Signup
 
-```sh
-turbo build --filter=docs
-```
+<!-- Add screenshot here -->
 
-Without global `turbo`:
+<img width="1907" height="909" alt="Screenshot 2026-08-17 135513" src="https://github.com/user-attachments/assets/ce595476-0e5d-4294-bb37-86df6c42a82a" />
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
-```
 
-### Develop
+---
 
-To develop all apps and packages, run the following command:
+## 🔑 Signin
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+<!-- Add screenshot here -->
 
-```sh
-cd my-turborepo
-turbo dev
-```
+<img width="1907" height="901" alt="Screenshot 2026-08-17 135610" src="https://github.com/user-attachments/assets/285990fc-698b-417a-836b-40f05a99ca72" />
 
-Without global `turbo`, use your package manager:
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
+---
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## 🏠 Dashboard
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+<!-- Add screenshot here -->
 
-```sh
-turbo dev --filter=web
-```
+<img width="1907" height="903" alt="Screenshot 2026-08-17 135709" src="https://github.com/user-attachments/assets/96d92497-15a3-40f2-bcae-989d993e5089" />
 
-Without global `turbo`:
 
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
+---
 
-### Remote Caching
+## 🏢 Organizations
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+<!-- Add screenshot here -->
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+<img width="1907" height="903" alt="Screenshot 2026-08-17 140010" src="https://github.com/user-attachments/assets/322d3634-1630-4e1a-9b59-48c32f6a8bac" />
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+---
 
-```sh
-cd my-turborepo
-turbo login
-```
+## 👥 Organization Members
 
-Without global `turbo`, use your package manager:
+<!-- Add screenshot here -->
 
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
+<img width="1907" height="893" alt="Screenshot 2026-08-17 140045" src="https://github.com/user-attachments/assets/0bd6aa4f-1228-4c63-af68-259d5e9208ca" />
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## 📋 Organization Boards
 
-```sh
-turbo link
-```
+<!-- Add screenshot here -->
 
-Without global `turbo`:
+<img width="1907" height="907" alt="Screenshot 2026-08-17 140136" src="https://github.com/user-attachments/assets/a32b394f-4482-4173-a33c-13393e33145b" />
 
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
 
-## Useful Links
+---
 
-Learn more about the power of Turborepo:
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+
+---
+
+# 🏗️ Architecture
+
+```text
+                    React Frontend
+                          │
+                          │ REST API
+                          ▼
+                    Express Backend
+                          │
+                          ▼
+                       Prisma
+                          │
+                          ▼
+                  Neon PostgreSQL
+
+                    WebSocket
+                 (Future Integration)
