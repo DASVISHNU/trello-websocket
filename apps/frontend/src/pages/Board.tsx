@@ -1,5 +1,14 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+    useEffect,
+    useRef,
+    useState
+} from "react";
+
+import {
+    useNavigate,
+    useParams
+} from "react-router-dom";
+
 
 type Issue = {
     id: string;
@@ -8,12 +17,14 @@ type Issue = {
     sectionId: string;
 };
 
+
 type Section = {
     id: string;
     title: string;
     boardId: string;
     issues: Issue[];
 };
+
 
 type BoardData = {
     id: string;
@@ -23,31 +34,293 @@ type BoardData = {
 
 function Board() {
 
-    const { organizationId, boardId } = useParams();
+    const {
+        organizationId,
+        boardId
+    } = useParams();
 
     const navigate = useNavigate();
 
-    const [board, setBoard] = useState<BoardData | null>(null);
 
-    const [sections, setSections] = useState<Section[]>([]);
+    // =====================================================
+    // BOARD
+    // =====================================================
 
-    const [loading, setLoading] = useState(true);
-
-
-    // Create Issue states
-    const [showCreateIssue, setShowCreateIssue] = useState(false);
-
-    const [selectedSectionId, setSelectedSectionId] = useState("");
-
-    const [issueTitle, setIssueTitle] = useState("");
-
-    const [issueDescription, setIssueDescription] = useState("");
-
-    const [creatingIssue, setCreatingIssue] = useState(false);
+    const [board, setBoard] =
+        useState<BoardData | null>(null);
 
 
-    // Dragged issue
-    const [draggedIssue, setDraggedIssue] = useState<Issue | null>(null);
+    // =====================================================
+    // SECTIONS
+    // =====================================================
+
+    const [sections, setSections] =
+        useState<Section[]>([]);
+
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    // Prevent duplicate section creation
+    // because React development mode can run useEffect twice.
+    const creatingDefaultSections =
+        useRef(false);
+
+
+    // =====================================================
+    // CREATE ISSUE STATES
+    // =====================================================
+
+    const [showCreateIssue, setShowCreateIssue] =
+        useState(false);
+
+
+    const [selectedSectionId, setSelectedSectionId] =
+        useState("");
+
+
+    const [issueTitle, setIssueTitle] =
+        useState("");
+
+
+    const [issueDescription, setIssueDescription] =
+        useState("");
+
+
+    const [creatingIssue, setCreatingIssue] =
+        useState(false);
+
+
+    // =====================================================
+    // DRAGGED ISSUE
+    // =====================================================
+
+    const [draggedIssue, setDraggedIssue] =
+        useState<Issue | null>(null);
+
+
+    // =====================================================
+    // CREATE DEFAULT SECTIONS
+    // =====================================================
+
+    const createDefaultSections = async (
+        token: string,
+        existingSections: Section[]
+    ): Promise<Section[]> => {
+
+        if (
+            !organizationId ||
+            !boardId
+        ) {
+            return existingSections;
+        }
+
+
+        // Prevent duplicate API calls
+        if (
+            creatingDefaultSections.current
+        ) {
+            return existingSections;
+        }
+
+
+        creatingDefaultSections.current = true;
+
+
+        try {
+
+            const defaultSectionNames = [
+                "Open",
+                "Pending",
+                "Done"
+            ];
+
+
+            // =================================================
+            // KEEP ONLY ONE SECTION OF EACH TITLE
+            // =================================================
+
+            const uniqueSections =
+                new Map<string, Section>();
+
+
+            for (
+                const section
+                of existingSections
+            ) {
+
+                const key =
+                    section.title
+                        .trim()
+                        .toLowerCase();
+
+
+                if (
+                    !uniqueSections.has(key)
+                ) {
+
+                    uniqueSections.set(
+                        key,
+                        section
+                    );
+
+                }
+
+            }
+
+
+            const sections =
+                Array.from(
+                    uniqueSections.values()
+                );
+
+
+            // =================================================
+            // EXISTING SECTION NAMES
+            // =================================================
+
+            const existingTitles =
+                new Set(
+                    sections.map(
+                        (section) =>
+                            section.title
+                                .trim()
+                                .toLowerCase()
+                    )
+                );
+
+
+            // =================================================
+            // CREATE ONLY MISSING SECTIONS
+            // =================================================
+
+            for (
+                const sectionName
+                of defaultSectionNames
+            ) {
+
+                const normalizedName =
+                    sectionName
+                        .toLowerCase();
+
+
+                // Already exists
+                if (
+                    existingTitles.has(
+                        normalizedName
+                    )
+                ) {
+
+                    continue;
+
+                }
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections`,
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json",
+
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                },
+
+                                body: JSON.stringify({
+                                    title:
+                                        sectionName,
+                                }),
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    if (!response.ok) {
+
+                        console.log(
+                            `Failed to create ${sectionName}:`,
+                            data
+                        );
+
+                        continue;
+
+                    }
+
+
+                    /*
+                     * Backend may return:
+                     *
+                     * {
+                     *     section: {...}
+                     * }
+                     *
+                     * OR
+                     *
+                     * {
+                     *     data: {...}
+                     * }
+                     */
+
+                    const createdSection =
+                        data.section ||
+                        data.data;
+
+
+                    if (
+                        createdSection
+                    ) {
+
+                        sections.push({
+
+                            ...createdSection,
+
+                            issues: [],
+
+                        });
+
+
+                        existingTitles.add(
+                            normalizedName
+                        );
+
+                    }
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        `Failed to create ${sectionName}:`,
+                        error
+                    );
+
+                }
+
+            }
+
+
+            return sections;
+
+        }
+
+        finally {
+
+            creatingDefaultSections.current =
+                false;
+
+        }
+
+    };
 
 
     // =====================================================
@@ -56,137 +329,427 @@ function Board() {
 
     useEffect(() => {
 
-        const getBoardData = async () => {
+        const getBoardData =
+            async () => {
 
-            try {
+                try {
 
-                const token = localStorage.getItem("token");
+                    const token =
+                        localStorage.getItem(
+                            "token"
+                        );
 
-                if (!organizationId || !boardId) {
-                    return;
-                }
 
+                    if (
+                        !organizationId ||
+                        !boardId
+                    ) {
 
-                // =================================================
-                // GET BOARDS
-                // =================================================
+                        return;
 
-                const boardResponse = await fetch(
-                    `http://localhost:8000/api/v1/org/${organizationId}/boards`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
                     }
-                );
-
-                const boardData = await boardResponse.json();
-
-                if (!boardResponse.ok) {
-
-                    console.log(boardData);
-
-                    return;
-                }
 
 
-                const currentBoard = boardData.boards.find(
-                    (b: BoardData) => b.id === boardId
-                );
+                    // =================================================
+                    // GET BOARDS
+                    // =================================================
+
+                    const boardResponse =
+                        await fetch(
+                            `http://localhost:8000/api/v1/org/${organizationId}/boards`,
+                            {
+                                method: "GET",
+
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                },
+                            }
+                        );
 
 
-                if (currentBoard) {
-
-                    setBoard(currentBoard);
-
-                }
+                    const boardData =
+                        await boardResponse.json();
 
 
-                // =================================================
-                // GET SECTIONS
-                // =================================================
+                    if (
+                        !boardResponse.ok
+                    ) {
 
-                const sectionResponse = await fetch(
-                    `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
+                        console.log(
+                            boardData
+                        );
+
+                        return;
+
                     }
-                );
 
 
-                const sectionData = await sectionResponse.json();
+                    const currentBoard =
+                        boardData.boards?.find(
+                            (b: BoardData) =>
+                                b.id === boardId
+                        );
 
 
-                if (!sectionResponse.ok) {
+                    if (
+                        currentBoard
+                    ) {
 
-                    console.log(sectionData);
+                        setBoard(
+                            currentBoard
+                        );
 
-                    return;
-                }
-
-
-                const sectionsFromBackend =
-                    sectionData.sections || [];
+                    }
 
 
-                // =================================================
-                // GET ISSUES FOR EACH SECTION
-                // =================================================
+                    // =================================================
+                    // GET SECTIONS
+                    // =================================================
 
-                const sectionsWithIssues = await Promise.all(
+                    const sectionResponse =
+                        await fetch(
+                            `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections`,
+                            {
+                                method: "GET",
 
-                    sectionsFromBackend.map(
-                        async (section: Section) => {
+                                headers: {
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                },
+                            }
+                        );
 
-                            const issueResponse = await fetch(
-                                `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${section.id}/issues`,
-                                {
-                                    method: "GET",
 
-                                    headers: {
-                                        Authorization: `Bearer ${token}`,
-                                    },
-                                }
+                    const sectionData =
+                        await sectionResponse.json();
+
+
+                    if (
+                        !sectionResponse.ok
+                    ) {
+
+                        console.log(
+                            sectionData
+                        );
+
+                        return;
+
+                    }
+
+
+                    let sectionsFromBackend:
+                        Section[] =
+                        sectionData.sections ||
+                        [];
+
+
+                    // =================================================
+                    // REMOVE DUPLICATE SECTIONS
+                    // =================================================
+
+                    const uniqueSections =
+                        new Map<
+                            string,
+                            Section
+                        >();
+
+
+                    for (
+                        const section
+                        of sectionsFromBackend
+                    ) {
+
+                        const key =
+                            section.title
+                                .trim()
+                                .toLowerCase();
+
+
+                        if (
+                            !uniqueSections.has(
+                                key
+                            )
+                        ) {
+
+                            uniqueSections.set(
+                                key,
+                                section
                             );
 
-
-                            const issueData =
-                                await issueResponse.json();
-
-
-                            return {
-
-                                ...section,
-
-                                issues: issueResponse.ok
-                                    ? (issueData.issues || []).map(
-                                        (issue: Issue) => ({
-                                            ...issue,
-                                            sectionId: section.id,
-                                        })
-                                    )
-                                    : [],
-
-                            };
-
                         }
-                    )
 
+                    }
+
+
+                    sectionsFromBackend =
+                        Array.from(
+                            uniqueSections.values()
+                        );
+
+
+                    // =================================================
+                    // CREATE MISSING DEFAULT SECTIONS
+                    // =================================================
+
+                    if (token) {
+
+                        sectionsFromBackend =
+                            await createDefaultSections(
+                                token,
+                                sectionsFromBackend
+                            );
+
+                    }
+
+
+                    // =================================================
+                    // GET ISSUES FOR EVERY SECTION
+                    // =================================================
+
+                    const sectionsWithIssues =
+                        await Promise.all(
+
+                            sectionsFromBackend.map(
+                                async (
+                                    section: Section
+                                ) => {
+
+                                    try {
+
+                                        const issueResponse =
+                                            await fetch(
+                                                `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${section.id}/issues`,
+                                                {
+                                                    method:
+                                                        "GET",
+
+                                                    headers: {
+                                                        Authorization:
+                                                            `Bearer ${token}`,
+                                                    },
+                                                }
+                                            );
+
+
+                                        const issueData =
+                                            await issueResponse.json();
+
+
+                                        return {
+
+                                            ...section,
+
+                                            issues:
+                                                issueResponse.ok
+                                                    ? (
+                                                        issueData.issues ||
+                                                        []
+                                                    ).map(
+                                                        (
+                                                            issue: Issue
+                                                        ) => ({
+
+                                                            ...issue,
+
+                                                            sectionId:
+                                                                section.id,
+
+                                                        })
+                                                    )
+                                                    : [],
+
+                                        };
+
+                                    }
+
+                                    catch (
+                                        error
+                                    ) {
+
+                                        console.error(
+                                            "Failed to fetch issues:",
+                                            error
+                                        );
+
+
+                                        return {
+
+                                            ...section,
+
+                                            issues: [],
+
+                                        };
+
+                                    }
+
+                                }
+                            )
+
+                        );
+
+
+                    setSections(
+                        sectionsWithIssues
+                    );
+
+                }
+
+                catch (
+                    error
+                ) {
+
+                    console.error(
+                        "Failed to fetch board:",
+                        error
+                    );
+
+                }
+
+                finally {
+
+                    setLoading(false);
+
+                }
+
+            };
+
+
+        getBoardData();
+
+    }, [
+        organizationId,
+        boardId
+    ]);
+
+
+    // =====================================================
+    // CREATE ISSUE
+    // =====================================================
+
+    const handleCreateIssue =
+        async () => {
+
+            if (
+                !issueTitle.trim()
+            ) {
+
+                alert(
+                    "Issue title is required"
                 );
 
-
-                setSections(sectionsWithIssues);
+                return;
 
             }
 
-            catch (error) {
+
+            if (
+                !selectedSectionId
+            ) {
+
+                alert(
+                    "Please select a section"
+                );
+
+                return;
+
+            }
+
+
+            try {
+
+                setCreatingIssue(
+                    true
+                );
+
+
+                const token =
+                    localStorage.getItem(
+                        "token"
+                    );
+
+
+                const response =
+                    await fetch(
+                        `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${selectedSectionId}/issues`,
+                        {
+                            method: "POST",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json",
+
+                                Authorization:
+                                    `Bearer ${token}`,
+
+                            },
+
+                            body: JSON.stringify({
+
+                                title:
+                                    issueTitle,
+
+                                description:
+                                    issueDescription,
+
+                            }),
+
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    !response.ok
+                ) {
+
+                    console.log(
+                        data
+                    );
+
+                    alert(
+                        data.message ||
+                        "Failed to create issue"
+                    );
+
+                    return;
+
+                }
+
+
+                console.log(
+                    "Issue created:",
+                    data
+                );
+
+
+                setShowCreateIssue(
+                    false
+                );
+
+
+                setIssueTitle("");
+
+                setIssueDescription("");
+
+                setSelectedSectionId("");
+
+
+                // Reload board
+                window.location.reload();
+
+            }
+
+            catch (
+                error
+            ) {
 
                 console.error(
-                    "Failed to fetch board:",
+                    "Failed to create issue:",
                     error
                 );
 
@@ -194,350 +757,295 @@ function Board() {
 
             finally {
 
-                setLoading(false);
+                setCreatingIssue(
+                    false
+                );
 
             }
 
         };
 
 
-        getBoardData();
-
-    }, [organizationId, boardId]);
-
-
-    // =====================================================
-    // CREATE ISSUE
-    // =====================================================
-
-    const handleCreateIssue = async () => {
-
-        if (!issueTitle.trim()) {
-
-            alert("Issue title is required");
-
-            return;
-        }
-
-
-        if (!selectedSectionId) {
-
-            alert("Please select a section");
-
-            return;
-        }
-
-
-        try {
-
-            setCreatingIssue(true);
-
-
-            const token = localStorage.getItem("token");
-
-
-            const response = await fetch(
-                `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${selectedSectionId}/issues`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type": "application/json",
-
-                        Authorization: `Bearer ${token}`,
-                    },
-
-                    body: JSON.stringify({
-                        title: issueTitle,
-                        description: issueDescription,
-                    }),
-                }
-            );
-
-
-            const data = await response.json();
-
-
-            if (!response.ok) {
-
-                console.log(data);
-
-                alert(
-                    data.message ||
-                    "Failed to create issue"
-                );
-
-                return;
-            }
-
-
-            console.log(
-                "Issue created:",
-                data
-            );
-
-
-            // Close modal
-            setShowCreateIssue(false);
-
-
-            // Clear form
-            setIssueTitle("");
-
-            setIssueDescription("");
-
-            setSelectedSectionId("");
-
-
-            // Reload board
-            window.location.reload();
-
-        }
-
-        catch (error) {
-
-            console.error(
-                "Failed to create issue:",
-                error
-            );
-
-        }
-
-        finally {
-
-            setCreatingIssue(false);
-
-        }
-
-    };
-
-
     // =====================================================
     // DRAG START
     // =====================================================
 
-    const handleDragStart = (issue: Issue) => {
+    const handleDragStart =
+        (issue: Issue) => {
 
-        setDraggedIssue(issue);
+            setDraggedIssue(
+                issue
+            );
 
-    };
+        };
 
 
     // =====================================================
     // DRAG OVER
     // =====================================================
 
-    const handleDragOver = (
-        event: React.DragEvent<HTMLDivElement>
-    ) => {
+    const handleDragOver =
+        (
+            event:
+                React.DragEvent<HTMLDivElement>
+        ) => {
 
-        event.preventDefault();
+            event.preventDefault();
 
-    };
+        };
 
 
     // =====================================================
     // DROP ISSUE
     // =====================================================
 
-    const handleDrop = async (
-        targetSectionId: string
-    ) => {
+    const handleDrop =
+        async (
+            targetSectionId: string
+        ) => {
 
-        if (!draggedIssue) {
-
-            return;
-        }
-
-
-        const oldSectionId =
-            draggedIssue.sectionId;
-
-
-        // Same section
-        if (
-            oldSectionId ===
-            targetSectionId
-        ) {
-
-            setDraggedIssue(null);
-
-            return;
-        }
-
-
-        try {
-
-            const token =
-                localStorage.getItem("token");
-
-
-            // =================================================
-            // UPDATE DATABASE
-            // =================================================
-
-            const response = await fetch(
-
-                `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${oldSectionId}/${draggedIssue.id}/issues`,
-
-                {
-                    method: "PUT",
-
-                    headers: {
-
-                        "Content-Type":
-                            "application/json",
-
-                        Authorization:
-                            `Bearer ${token}`,
-
-                    },
-
-                    body: JSON.stringify({
-
-                        sectionId:
-                            targetSectionId,
-
-                    }),
-
-                }
-
-            );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                console.log(data);
-
-                alert(
-                    data.message ||
-                    "Failed to move issue"
-                );
-
-                setDraggedIssue(null);
+            if (
+                !draggedIssue
+            ) {
 
                 return;
+
             }
 
 
-            // =================================================
-            // UPDATE FRONTEND STATE
-            // =================================================
-
-            setSections(
-                (previousSections) => {
-
-                    return previousSections.map(
-                        (section) => {
+            const oldSectionId =
+                draggedIssue.sectionId;
 
 
-                            // Remove issue
-                            // from old section
+            if (
+                oldSectionId ===
+                targetSectionId
+            ) {
 
-                            if (
-                                section.id ===
-                                oldSectionId
-                            ) {
+                setDraggedIssue(
+                    null
+                );
 
-                                return {
+                return;
 
-                                    ...section,
-
-                                    issues:
-                                        section.issues.filter(
-                                            (issue) =>
-                                                issue.id !==
-                                                draggedIssue.id
-                                        ),
-
-                                };
-
-                            }
+            }
 
 
-                            // Add issue
-                            // to new section
+            try {
 
-                            if (
-                                section.id ===
-                                targetSectionId
-                            ) {
-
-                                return {
-
-                                    ...section,
-
-                                    issues: [
-                                        ...section.issues,
-
-                                        {
-                                            ...draggedIssue,
-
-                                            sectionId:
-                                                targetSectionId,
-
-                                        },
-
-                                    ],
-
-                                };
-
-                            }
+                const token =
+                    localStorage.getItem(
+                        "token"
+                    );
 
 
-                            return section;
+                // =================================================
+                // UPDATE DATABASE
+                // =================================================
+
+                const response =
+                    await fetch(
+                        `http://localhost:8000/api/v1/org/${organizationId}/boards/${boardId}/sections/${oldSectionId}/${draggedIssue.id}/issues`,
+                        {
+                            method: "PUT",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json",
+
+                                Authorization:
+                                    `Bearer ${token}`,
+
+                            },
+
+                            body: JSON.stringify({
+
+                                sectionId:
+                                    targetSectionId,
+
+                            }),
 
                         }
                     );
 
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    !response.ok
+                ) {
+
+                    console.log(
+                        data
+                    );
+
+                    alert(
+                        data.message ||
+                        "Failed to move issue"
+                    );
+
+                    setDraggedIssue(
+                        null
+                    );
+
+                    return;
+
                 }
-            );
 
 
-        }
+                // =================================================
+                // UPDATE FRONTEND
+                // =================================================
 
-        catch (error) {
+                setSections(
+                    (
+                        previousSections
+                    ) => {
 
-            console.error(
-                "Failed to move issue:",
+                        return previousSections.map(
+                            (
+                                section
+                            ) => {
+
+                                // Remove from old section
+
+                                if (
+                                    section.id ===
+                                    oldSectionId
+                                ) {
+
+                                    return {
+
+                                        ...section,
+
+                                        issues:
+                                            section
+                                                .issues
+                                                .filter(
+                                                    (
+                                                        issue
+                                                    ) =>
+                                                        issue.id !==
+                                                        draggedIssue.id
+                                                ),
+
+                                    };
+
+                                }
+
+
+                                // Add to new section
+
+                                if (
+                                    section.id ===
+                                    targetSectionId
+                                ) {
+
+                                    return {
+
+                                        ...section,
+
+                                        issues: [
+
+                                            ...section.issues,
+
+                                            {
+
+                                                ...draggedIssue,
+
+                                                sectionId:
+                                                    targetSectionId,
+
+                                            },
+
+                                        ],
+
+                                    };
+
+                                }
+
+
+                                return section;
+
+                            }
+                        );
+
+                    }
+                );
+
+            }
+
+            catch (
                 error
+            ) {
+
+                console.error(
+                    "Failed to move issue:",
+                    error
+                );
+
+            }
+
+            finally {
+
+                setDraggedIssue(
+                    null
+                );
+
+            }
+
+        };
+
+
+    // =====================================================
+    // CLOSE CREATE ISSUE MODAL
+    // =====================================================
+
+    const closeCreateIssueModal =
+        () => {
+
+            setShowCreateIssue(
+                false
             );
 
-        }
+            setIssueTitle("");
 
-        finally {
+            setIssueDescription("");
 
-            setDraggedIssue(null);
+            setSelectedSectionId("");
 
-        }
-
-    };
+        };
 
 
     // =====================================================
     // LOADING
     // =====================================================
 
-    if (loading) {
+    if (
+        loading
+    ) {
 
         return (
 
-            <div className="
-                min-h-screen
-                bg-black
-                flex
-                items-center
-                justify-center
-            ">
+            <div
+                className="
+                    min-h-screen
+                    bg-black
+                    flex
+                    items-center
+                    justify-center
+                "
+            >
 
-                <p className="
-                    text-white
-                    text-xl
-                ">
+                <p
+                    className="
+                        text-white
+                        text-xl
+                    "
+                >
                     Loading board...
                 </p>
 
@@ -571,42 +1079,49 @@ function Board() {
 
             {/* Overlay */}
 
-            <div className="
-                absolute
-                inset-0
-                bg-black/60
-            ">
+            <div
+                className="
+                    absolute
+                    inset-0
+                    bg-black/60
+                "
+            >
             </div>
 
 
-            <div className="
-                relative
-                z-10
-                min-h-screen
-            ">
-
+            <div
+                className="
+                    relative
+                    z-10
+                    min-h-screen
+                "
+            >
 
                 {/* ================================================= */}
                 {/* NAVBAR */}
                 {/* ================================================= */}
 
-                <div className="
-                    h-16
-                    bg-white/10
-                    backdrop-blur-xl
-                    border-b
-                    border-white/20
-                    flex
-                    items-center
-                    justify-between
-                    px-8
-                ">
+                <div
+                    className="
+                        h-16
+                        bg-white/10
+                        backdrop-blur-xl
+                        border-b
+                        border-white/20
+                        flex
+                        items-center
+                        justify-between
+                        px-8
+                    "
+                >
 
-                    <h1 className="
-                        text-2xl
-                        font-bold
-                        text-white
-                    ">
+                    <h1
+                        className="
+                            text-2xl
+                            font-bold
+                            text-white
+                        "
+                    >
                         TaskBoard
                     </h1>
 
@@ -630,53 +1145,60 @@ function Board() {
 
 
                 {/* ================================================= */}
-                {/* BOARD */}
+                {/* BOARD CONTENT */}
                 {/* ================================================= */}
 
                 <div className="p-8">
 
+                    {/* BOARD HEADER */}
 
-                    {/* Board Header */}
-
-                    <div className="
-                        flex
-                        justify-between
-                        items-center
-                        mb-8
-                    ">
+                    <div
+                        className="
+                            flex
+                            justify-between
+                            items-center
+                            mb-8
+                        "
+                    >
 
                         <div>
 
-                            <h1 className="
-                                text-4xl
-                                font-bold
-                                text-white
-                            ">
-                                {board?.title || "Board"}
+                            <h1
+                                className="
+                                    text-4xl
+                                    font-bold
+                                    text-white
+                                "
+                            >
+                                {
+                                    board?.title ||
+                                    "Board"
+                                }
                             </h1>
 
 
-                            <p className="
-                                text-white/60
-                                mt-2
-                            ">
+                            <p
+                                className="
+                                    text-white/60
+                                    mt-2
+                                "
+                            >
                                 Manage your issues and tasks
                             </p>
 
                         </div>
 
 
-                        {/* Global Add Issue */}
-
                         <button
                             onClick={() => {
 
-                                // Don't select any section
-                                // automatically
+                                setSelectedSectionId(
+                                    ""
+                                );
 
-                                setSelectedSectionId("");
-
-                                setShowCreateIssue(true);
+                                setShowCreateIssue(
+                                    true
+                                );
 
                             }}
                             className="
@@ -705,18 +1227,24 @@ function Board() {
 
                     {sections.length > 0 ? (
 
-                        <div className="
-                            flex
-                            gap-6
-                            overflow-x-auto
-                            pb-6
-                        ">
+                        <div
+                            className="
+                                flex
+                                gap-6
+                                overflow-x-auto
+                                pb-6
+                            "
+                        >
 
                             {sections.map(
-                                (section) => (
+                                (
+                                    section
+                                ) => (
 
                                     <div
-                                        key={section.id}
+                                        key={
+                                            section.id
+                                        }
 
                                         onDragOver={
                                             handleDragOver
@@ -741,29 +1269,36 @@ function Board() {
                                         "
                                     >
 
+                                        {/* SECTION HEADER */}
 
-                                        {/* Section Header */}
+                                        <div
+                                            className="
+                                                flex
+                                                justify-between
+                                                items-center
+                                                mb-5
+                                            "
+                                        >
 
-                                        <div className="
-                                            flex
-                                            justify-between
-                                            items-center
-                                            mb-5
-                                        ">
-
-                                            <h2 className="
-                                                text-xl
-                                                font-bold
-                                                text-white
-                                            ">
-                                                {section.title}
+                                            <h2
+                                                className="
+                                                    text-xl
+                                                    font-bold
+                                                    text-white
+                                                "
+                                            >
+                                                {
+                                                    section.title
+                                                }
                                             </h2>
 
 
-                                            <span className="
-                                                text-white/50
-                                                text-sm
-                                            ">
+                                            <span
+                                                className="
+                                                    text-white/50
+                                                    text-sm
+                                                "
+                                            >
                                                 {
                                                     section
                                                         .issues
@@ -774,18 +1309,20 @@ function Board() {
                                         </div>
 
 
-                                        {/* ================================================= */}
                                         {/* ISSUES */}
-                                        {/* ================================================= */}
 
-                                        <div className="
-                                            flex
-                                            flex-col
-                                            gap-4
-                                        ">
+                                        <div
+                                            className="
+                                                flex
+                                                flex-col
+                                                gap-4
+                                            "
+                                        >
 
                                             {section.issues.map(
-                                                (issue) => (
+                                                (
+                                                    issue
+                                                ) => (
 
                                                     <div
                                                         key={
@@ -814,11 +1351,13 @@ function Board() {
                                                         "
                                                     >
 
-                                                        <h3 className="
-                                                            text-lg
-                                                            font-semibold
-                                                            text-white
-                                                        ">
+                                                        <h3
+                                                            className="
+                                                                text-lg
+                                                                font-semibold
+                                                                text-white
+                                                            "
+                                                        >
                                                             {
                                                                 issue.title
                                                             }
@@ -827,11 +1366,13 @@ function Board() {
 
                                                         {issue.description && (
 
-                                                            <p className="
-                                                                text-white/60
-                                                                text-sm
-                                                                mt-2
-                                                            ">
+                                                            <p
+                                                                className="
+                                                                    text-white/60
+                                                                    text-sm
+                                                                    mt-2
+                                                                "
+                                                            >
                                                                 {
                                                                     issue.description
                                                                 }
@@ -845,16 +1386,16 @@ function Board() {
                                             )}
 
 
-                                            {/* Empty Section */}
-
                                             {section.issues.length === 0 && (
 
-                                                <p className="
-                                                    text-white/40
-                                                    text-sm
-                                                    text-center
-                                                    py-6
-                                                ">
+                                                <p
+                                                    className="
+                                                        text-white/40
+                                                        text-sm
+                                                        text-center
+                                                        py-6
+                                                    "
+                                                >
                                                     No issues yet
                                                 </p>
 
@@ -863,9 +1404,7 @@ function Board() {
                                         </div>
 
 
-                                        {/* ================================================= */}
-                                        {/* ADD ISSUE TO THIS SECTION */}
-                                        {/* ================================================= */}
+                                        {/* ADD ISSUE */}
 
                                         <button
                                             onClick={() => {
@@ -902,23 +1441,20 @@ function Board() {
 
                     ) : (
 
-                        <div className="
-                            text-center
-                            mt-20
-                        ">
+                        <div
+                            className="
+                                text-center
+                                mt-20
+                            "
+                        >
 
-                            <p className="
-                                text-xl
-                                text-white/70
-                            ">
+                            <p
+                                className="
+                                    text-xl
+                                    text-white/70
+                                "
+                            >
                                 No sections found.
-                            </p>
-
-                            <p className="
-                                text-white/40
-                                mt-2
-                            ">
-                                Create sections for this board first.
                             </p>
 
                         </div>
@@ -936,47 +1472,52 @@ function Board() {
 
             {showCreateIssue && (
 
-                <div className="
-                    fixed
-                    inset-0
-                    z-50
-                    bg-black/70
-                    flex
-                    items-center
-                    justify-center
-                    p-4
-                ">
+                <div
+                    className="
+                        fixed
+                        inset-0
+                        z-50
+                        bg-black/70
+                        flex
+                        items-center
+                        justify-center
+                        p-4
+                    "
+                >
 
-                    <div className="
-                        w-full
-                        max-w-md
-                        bg-white/10
-                        backdrop-blur-xl
-                        border
-                        border-white/20
-                        rounded-xl
-                        p-8
-                    ">
+                    <div
+                        className="
+                            w-full
+                            max-w-md
+                            bg-white/10
+                            backdrop-blur-xl
+                            border
+                            border-white/20
+                            rounded-xl
+                            p-8
+                        "
+                    >
 
-
-                        <h2 className="
-                            text-2xl
-                            font-bold
-                            text-white
-                            mb-6
-                        ">
+                        <h2
+                            className="
+                                text-2xl
+                                font-bold
+                                text-white
+                                mb-6
+                            "
+                        >
                             Create Issue
                         </h2>
 
 
-                        {/* ================================================= */}
                         {/* ISSUE TITLE */}
-                        {/* ================================================= */}
 
                         <input
                             type="text"
                             placeholder="Issue title"
-                            value={issueTitle}
+                            value={
+                                issueTitle
+                            }
                             onChange={(e) =>
                                 setIssueTitle(
                                     e.target.value
@@ -997,13 +1538,13 @@ function Board() {
                         />
 
 
-                        {/* ================================================= */}
-                        {/* DESCRIPTION */}
-                        {/* ================================================= */}
+                        {/* ISSUE DESCRIPTION */}
 
                         <textarea
                             placeholder="Issue description"
-                            value={issueDescription}
+                            value={
+                                issueDescription
+                            }
                             onChange={(e) =>
                                 setIssueDescription(
                                     e.target.value
@@ -1027,81 +1568,102 @@ function Board() {
 
 
                         {/* ================================================= */}
-                        {/* SECTION SELECTION */}
+                        {/* SELECT SECTION */}
                         {/* ================================================= */}
 
-                        <div className="mb-6">
+                        <div
+                            className="
+                                mb-6
+                            "
+                        >
 
-                            <label className="
-                                block
-                                text-white/70
-                                text-sm
-                                mb-3
-                            ">
+                            <label
+                                className="
+                                    block
+                                    text-white/70
+                                    text-sm
+                                    mb-3
+                                "
+                            >
                                 Select Section
                             </label>
 
 
-                            <div className="
-                                flex
-                                flex-col
-                                gap-2
-                            ">
+                            <div
+                                className="
+                                    flex
+                                    flex-col
+                                    gap-3
+                                "
+                            >
 
                                 {sections.map(
-                                    (section) => (
+                                    (
+                                        section
+                                    ) => (
 
-                                        <button
-                                            key={section.id}
-                                            type="button"
+                                        <label
+                                            key={
+                                                section.id
+                                            }
 
-                                            onClick={() => {
-
-                                                setSelectedSectionId(
-                                                    section.id
-                                                );
-
-                                            }}
-
-                                            className={`
-                                                w-full
+                                            className="
+                                                flex
+                                                items-center
+                                                gap-3
                                                 px-4
                                                 py-3
                                                 rounded-lg
+                                                bg-white/10
                                                 border
-                                                text-left
+                                                border-white/20
+                                                cursor-pointer
+                                                hover:bg-white/20
                                                 transition
-
-                                                ${
-                                                    selectedSectionId ===
-                                                    section.id
-
-                                                        ? "bg-white/30 border-white/50 text-white"
-
-                                                        : "bg-white/10 border-white/20 text-white/70 hover:bg-white/20"
-                                                }
-                                            `}
+                                            "
                                         >
 
-                                            <span>
+                                            <input
+                                                type="radio"
+
+                                                name="issueSection"
+
+                                                value={
+                                                    section.id
+                                                }
+
+                                                checked={
+                                                    selectedSectionId ===
+                                                    section.id
+                                                }
+
+                                                onChange={() =>
+                                                    setSelectedSectionId(
+                                                        section.id
+                                                    )
+                                                }
+
+                                                className="
+                                                    w-4
+                                                    h-4
+                                                    accent-amber-300
+                                                    cursor-pointer
+                                                "
+                                            />
+
+
+                                            <span
+                                                className="
+                                                    text-white
+                                                    text-sm
+                                                "
+                                            >
                                                 {
                                                     section.title
                                                 }
                                             </span>
 
-
-                                            {selectedSectionId ===
-                                                section.id && (
-
-                                                <span className="
-                                                    float-right
-                                                ">
-                                                    ✓
-                                                </span>
-
-                                            )}
-
-                                        </button>
+                                        </label>
 
                                     )
                                 )}
@@ -1111,30 +1673,20 @@ function Board() {
                         </div>
 
 
-                        {/* ================================================= */}
                         {/* BUTTONS */}
-                        {/* ================================================= */}
 
-                        <div className="
-                            flex
-                            justify-end
-                            gap-4
-                        ">
+                        <div
+                            className="
+                                flex
+                                justify-end
+                                gap-4
+                            "
+                        >
 
                             <button
-                                onClick={() => {
-
-                                    setShowCreateIssue(
-                                        false
-                                    );
-
-                                    setIssueTitle("");
-
-                                    setIssueDescription("");
-
-                                    setSelectedSectionId("");
-
-                                }}
+                                onClick={
+                                    closeCreateIssueModal
+                                }
                                 className="
                                     px-4
                                     py-2
@@ -1165,9 +1717,11 @@ function Board() {
                                 "
                             >
 
-                                {creatingIssue
-                                    ? "Creating..."
-                                    : "Create"}
+                                {
+                                    creatingIssue
+                                        ? "Creating..."
+                                        : "Create"
+                                }
 
                             </button>
 
@@ -1182,6 +1736,8 @@ function Board() {
         </div>
 
     );
+
 }
+
 
 export default Board;
